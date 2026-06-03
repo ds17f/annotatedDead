@@ -35,6 +35,9 @@ jobs:
       - name: Build dist/
         run: make dist
 
+      - name: Set custom domain (persists across deploys)
+        run: echo 'annotated.thedeadly.app' > dist/CNAME
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
