@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Built faithful site (regenerate with `make dist` from mirror/)
+dist/
+
+# Crawler resume state and logs
+.mirror_state/
+*.log
+
+# Local Claude Code settings
+.claude/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+._*
+Thumbs.db
