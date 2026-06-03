@@ -1,4 +1,4 @@
-.PHONY: install mirror mirror-retry dist audit serve-dist all clean help
+.PHONY: install mirror mirror-retry dist audit serve-dist all release release-dryrun clean help
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -47,6 +47,12 @@ all: ## Full pipeline: mirror (only if missing) -> build -> audit -> serve
 	@$(MAKE) dist
 	@$(MAKE) audit
 	@$(MAKE) serve-dist
+
+release: ## Tag a semver release from conventional commits (pushes tag, triggers CI release)
+	@./scripts/release.sh $(VERSION)
+
+release-dryrun: ## Preview the next release version + changelog without tagging
+	@./scripts/release.sh --dry-run $(VERSION)
 
 clean: ## Remove build artifacts (dist/, logs, caches) — mirror/ is kept
 	rm -rf dist/

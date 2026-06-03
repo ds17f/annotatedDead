@@ -5,6 +5,8 @@ A self-contained, offline, **faithful preservation** of David Dodd's
 (`artsites.ucsc.edu/GDead/agdl/`), recovered from the Internet Archive and
 made fully browsable on its own, with the period HTML preserved byte-for-byte.
 
+**Live site: https://ds17f.github.io/annotatedDead/**
+
 > The original site is frozen/offline. This project rebuilds it from a single
 > archive.org snapshot (timestamp `20230806233010`) and fixes the links so it
 > works without the dead live domain.
@@ -183,11 +185,38 @@ scripts/
   mirror.py          # the raw crawler  (make mirror / mirror-retry)
   build_site.py      # the cleanup build (make dist)
   audit_links.py     # the link auditor  (make audit)
+  release.sh         # tag a semver release (make release)
+.github/workflows/   # CI, Pages deploy, release automation
 Makefile             # all commands — run `make help`
 .mirror_state/       # crawler resume state (gitignored)
 ```
 
 Run `make help` for the full target list.
+
+---
+
+## Hosting & releases
+
+The site is hosted on **GitHub Pages** and deploys automatically:
+
+- **Every merge to `main`** runs CI (build + link audit) and, on success,
+  publishes the site to Pages (`.github/workflows/deploy-pages.yml`). The build
+  uses the committed `mirror/`, so no archive.org crawl happens in CI.
+- **Releases are semver-tagged.** `make release` reads
+  [Conventional Commits](https://www.conventionalcommits.org/) since the last
+  `v*` tag, picks the next version, and pushes a `vX.Y.Z` tag. That triggers
+  `release.yml`, which builds the site, attaches `dist.zip`, and publishes a
+  GitHub Release. Preview first with `make release-dryrun`.
+
+## Contributing
+
+`main` is protected — all changes go through a pull request with passing CI.
+The cardinal rule: **never hand-edit `mirror/` or `dist/`** — express link and
+content fixes as code in `scripts/build_site.py` (`HTML_FIXES`, `REDIRECTS`,
+`ALT_LINKS`, anchor repair), so they're repeatable and reviewable.
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the workflow and
+**[AGENTS.md](AGENTS.md)** for the full conventions (also what AI agents follow).
 
 ---
 
