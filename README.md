@@ -5,7 +5,7 @@ A self-contained, offline, **faithful preservation** of David Dodd's
 (`artsites.ucsc.edu/GDead/agdl/`), recovered from the Internet Archive and
 made fully browsable on its own, with the period HTML preserved byte-for-byte.
 
-**Live site: https://ds17f.github.io/annotatedDead/**
+**Live site: https://annotated.thedeadly.app/**
 
 > The original site is frozen/offline. This project rebuilds it from a single
 > archive.org snapshot (timestamp `20230806233010`) and fixes the links so it
