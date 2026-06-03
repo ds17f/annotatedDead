@@ -100,12 +100,17 @@ original markup is preserved. Each fix is an explicit, counted pass:
 
 | Pass | What it does | Rewrites |
 |------|--------------|----------|
+| 0 | repair malformed source tags (`<a href="a href="deal.html"` → `deal.html`) | 5 |
 | 1 | `abs-agdl` → relative (`http://…/agdl/david.html` → `david.html`) | **408** |
-| 2 | typo'd internal link → real page (`mexicali.html` → `mex.html`) | 9 |
+| 2 | typo'd internal link → real page (`mexicali.html` → `mex.html`) | 10 |
 | 3 | root-absolute → relative (`/scarlet.html` → `scarlet.html`) | 3 |
 | 4 | bare domain → add scheme (`www.gdhour.com` → `http://www.gdhour.com`, still live) | 1 |
 | 5 | known-dead destination → `link-gone.html` (alternatives page) | 3 |
 | 6 | repair broken `#anchor` typos (`#workingmans` → `#workingman`) | 17 |
+
+Pass 0 fixes five specific broken-link defects in the source — a missing
+quote, a missing space, a pasted-twice `href` — each with an unambiguous
+intended target, applied as exact literal replacements.
 
 The biggest win is pass 1: **407 cross-page links pointed at the dead live
 domain** even though their targets sit right in the mirror.
@@ -120,12 +125,12 @@ In-page `#anchors` are validated too.
 
 | Result | Count |
 |--------|-------|
-| Internal links that resolve | **3,973** ✅ |
+| Internal links that resolve | **3,978** ✅ |
 | External links (left as-is, not verified) | 1,363 |
-| In-page anchors / mailto | 1,698 |
+| In-page anchors / mailto | 1,699 |
 | Case-mismatches (break on Linux, work on macOS) | **0** ✅ |
 | **Real broken internal links** | **0** ✅ |
-| Malformed-source fragments (not real links) | 6 |
+| Malformed-source fragments (not real links) | 1 |
 | Broken in-page anchors (preserved from source) | 43 |
 
 `make audit` exits non-zero only on *real* broken internal links or
@@ -157,8 +162,10 @@ This list lives in `ALT_LINKS` in `scripts/build_site.py` and is easy to extend.
 
 These are defects in the **original 1990s source**, kept rather than invented around:
 
-- **6 malformed-link fragments** (`a href=`, `chorus`, `btwind.html"`, …) come
-  from unclosed/broken tags; a browser never saw them as valid links either.
+- **1 malformed-link fragment** remains: `ripple.html`'s `(Chorus)` link points
+  at a `chorus` target that was never created, so there's nothing to repair it
+  to. (Five other malformed links with clear intended targets are fixed in
+  pass 0.)
 - **43 broken in-page anchors** (e.g. `biblio.html#goose`) point at anchors the
   author linked to but never created. The 17 that were obvious typos are
   auto-repaired; the rest are left honest.
