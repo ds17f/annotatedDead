@@ -49,10 +49,9 @@ archive.org ──mirror──► mirror/ ──build──► dist/ ──serve
 - **`dist/`** is a *build artifact*: `mirror/` plus link fixes. It's gitignored
   and rebuilt by `make dist`.
 
-This is why an earlier Markdown-conversion approach (`scripts/scrape.py`,
-`docs/`, MkDocs) was set aside: converting HTML→Markdown on download is lossy
-and fuses two concerns. Those files remain in the repo as history but are not
-part of this pipeline.
+Keeping these separate is the whole point: downloading once into an immutable
+`mirror/` means the browsable output can be regenerated any number of ways
+without ever re-hitting archive.org.
 
 ---
 
@@ -171,13 +170,12 @@ These are defects in the **original 1990s source**, kept rather than invented ar
 ## Project layout
 
 ```
-mirror/              # raw byte-exact archive copy (source of truth; not in git by default)
+mirror/              # raw byte-exact archive copy — the source of truth (committed)
 dist/                # built, link-fixed site (gitignored; regenerate with `make dist`)
 scripts/
   mirror.py          # the raw crawler  (make mirror / mirror-retry)
   build_site.py      # the cleanup build (make dist)
   audit_links.py     # the link auditor  (make audit)
-  scrape.py + others # legacy Markdown-conversion approach (superseded; kept as history)
 Makefile             # all commands — run `make help`
 .mirror_state/       # crawler resume state (gitignored)
 ```
