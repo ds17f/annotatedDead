@@ -41,6 +41,20 @@ OUT = Path(__file__).parent.parent / "dist"
 # never collide with a real 1990s page (e.g. gone.html is the "He's Gone" song).
 GONE_PAGE = "link-gone.html"
 
+# --- Pass 0: surgical repairs of specific malformed tags in the 1990s source.
+# Each entry is an exact (bad -> good) literal fix for one unique HTML defect
+# that a browser cannot parse as a link (a missing quote, a missing space, a
+# pasted-twice href). Applied to the raw text BEFORE link rewriting, so the
+# repaired href still flows through the redirect/anchor passes below.
+HTML_FIXES = {
+    "bachmann.html": [('<a href=btwind.html">', '<a href="btwind.html">')],
+    "greene.html":   [('href=ripple.html">', 'href="ripple.html">')],
+    "ramble2.html":  [('<a href="biblio.html>Sources</a>',
+                       '<a href="biblio.html">Sources</a>')],
+    "shalit.html":   [('<a href="a href="deal.html"', '<a href="deal.html"')],
+    "stephen.html":  [('<a href="ladyfinger">', '<a href="#ladyfinger">')],
+}
+
 # --- Pass 2: dead internal links whose real target lives under another name ---
 REDIRECTS = {
     "mexicali.html": "mex.html",
@@ -286,6 +300,12 @@ def main():
         dst.parent.mkdir(parents=True, exist_ok=True)
         if src.suffix.lower() in (".html", ".htm"):
             text = src.read_bytes().decode("latin-1")
+            for bad, good in HTML_FIXES.get(str(src.relative_to(SRC)), []):
+                if bad in text:
+                    text = text.replace(bad, good)
+                    report["0_html_repair"] += 1
+                else:
+                    print(f"  WARNING: HTML_FIX for {src.name} no longer matches: {bad!r}")
             dst.write_bytes(rewrite_html(text).encode("latin-1"))
             html_count += 1
         else:
@@ -297,6 +317,7 @@ def main():
     print(f"Built dist/: {html_count} html + 1 alt-links page, {bin_count} assets copied.\n")
     print("Link cleanup passes (rewrites applied):")
     labels = {
+        "0_html_repair": "malformed source tag repaired",
         "1_abs_agdl": "abs-agdl -> relative",
         "2_typo": "typo'd internal -> real page",
         "3_root_abs": "/root-absolute -> relative",
