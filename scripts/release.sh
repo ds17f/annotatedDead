@@ -12,34 +12,69 @@
 # all that is needed.
 #
 # Usage:
-#   scripts/release.sh                 # auto version from commits
+#   scripts/release.sh                 # auto version from commits, create+push tag
 #   scripts/release.sh 1.2.3           # explicit version
 #   scripts/release.sh --dry-run       # preview only, no tag created/pushed
-#   scripts/release.sh --dry-run 1.2.3
+#   scripts/release.sh --notes vX.Y.Z  # print release notes for a tag to stdout
+#                                       # (used by the release workflow)
 #
 # Version bump rules (Conventional Commits since the last tag):
 #   feat!: / fix!: / BREAKING CHANGE  -> major
 #   feat:                             -> minor
 #   fix: / perf:                      -> patch
-#   (nothing user-facing)            -> error, no release
 #
 set -euo pipefail
 
 GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[0;33m'; RED='\033[0;31m'; NC='\033[0m'
+
+# Print one changelog section (heading + bullets) for commits in $range matching
+# $pattern. Emits nothing if there are no matching commits.
+_section() {
+  local range=$1 pattern=$2 title=$3 lines
+  lines=$(git log $range --pretty=format:'%s (%h)' | grep -E "$pattern" \
+          | sed -E 's/^[a-z]+(\([^)]+\))?!?: //' || true)
+  if [ -n "$lines" ]; then
+    printf '### %s\n' "$title"
+    printf '%s\n' "$lines" | sed 's/^/- /'
+    printf '\n'
+  fi
+}
+
+# Build the full changelog (plain Markdown) for $tag over commit $range.
+build_changelog() {
+  local tag=$1 range=$2
+  printf '## %s — %s\n\n' "$tag" "$(date +%Y-%m-%d)"
+  _section "$range" '^feat(\([^)]+\))?!?:' 'Features'
+  _section "$range" '^fix(\([^)]+\))?!?:'  'Fixes'
+  _section "$range" '^perf(\([^)]+\))?:'   'Performance'
+}
+
+# Commit range from the tag before $tag up to $tag (empty if it's the first).
+range_before_tag() {
+  local tag=$1 prev
+  prev=$(git describe --tags --abbrev=0 "${tag}^" --match 'v*' 2>/dev/null || echo "")
+  [ -n "$prev" ] && echo "${prev}..${tag}" || echo ""
+}
+
+# --- --notes mode: print notes for an existing tag and exit (used by CI) ------
+if [ "${1:-}" = "--notes" ]; then
+  [ -n "${2:-}" ] || { echo "usage: $0 --notes vX.Y.Z" >&2; exit 2; }
+  build_changelog "$2" "$(range_before_tag "$2")"
+  exit 0
+fi
 
 DRY_RUN=false
 VERSION=""
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,33p' "$0"; exit 0 ;;
     *) VERSION="$arg" ;;
   esac
 done
 
 echo -e "${BLUE}🌹 Annotated GD Lyrics — release${NC}"
 
-# Last release tag, if any.
 LAST_TAG=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "")
 if [ -z "$LAST_TAG" ]; then
   RANGE=""
@@ -49,7 +84,6 @@ else
   echo -e "${BLUE}Last tag: ${LAST_TAG}${NC}"
 fi
 
-# Determine the version to release.
 if [ -n "$VERSION" ]; then
   echo -e "${BLUE}Using explicit version: ${VERSION}${NC}"
 elif [ -z "$LAST_TAG" ]; then
@@ -90,24 +124,7 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
   echo -e "${RED}Tag ${TAG} already exists.${NC}"; exit 1
 fi
 
-# Build changelog body from Conventional Commits.
-section() {
-  local pattern=$1 title=$2
-  local lines
-  lines=$(git log $RANGE --pretty=format:'%s (%h)' | grep -E "$pattern" \
-          | sed -E 's/^[a-z]+(\([^)]+\))?!?: //' || true)
-  if [ -n "$lines" ]; then
-    printf '### %s\n' "$title"
-    printf '%s\n' "$lines" | sed 's/^/- /'
-    printf '\n'
-  fi
-}
-CHANGELOG=$(
-  printf '## %s — %s\n\n' "$TAG" "$(date +%Y-%m-%d)"
-  section '^feat(\([^)]+\))?!?:' 'Features'
-  section '^fix(\([^)]+\))?!?:'  'Fixes'
-  section '^perf(\([^)]+\))?:'   'Performance'
-)
+CHANGELOG=$(build_changelog "$TAG" "$RANGE")
 
 echo ""
 echo -e "${BLUE}Changelog preview:${NC}"
@@ -121,6 +138,7 @@ if [ "$DRY_RUN" = true ]; then
 fi
 
 echo -e "${GREEN}Creating tag ${TAG}…${NC}"
-git tag -a "$TAG" -m "$CHANGELOG"
+# --cleanup=verbatim so Markdown '#' headings in the changelog are not stripped.
+git tag -a "$TAG" --cleanup=verbatim -m "$CHANGELOG"
 git push origin "$TAG"
 echo -e "${GREEN}Pushed ${TAG}. The release workflow will build the site and publish the GitHub Release.${NC}"

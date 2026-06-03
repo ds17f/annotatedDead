@@ -37,9 +37,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          NOTES=$(git for-each-ref "refs/tags/${GITHUB_REF_NAME}" --format='%(contents)')
-          [ -z "$NOTES" ] && NOTES="Release ${GITHUB_REF_NAME}"
+          # Generate notes from git log on the runner (robust; no dependence on
+          # the tag message, which git may have stripped of Markdown headings).
+          scripts/release.sh --notes "${GITHUB_REF_NAME}" > /tmp/notes.md
           gh release create "${GITHUB_REF_NAME}" \
             --title "${GITHUB_REF_NAME}" \
-            --notes "$NOTES" \
+            --notes-file /tmp/notes.md \
             "annotated-gd-lyrics-${GITHUB_REF_NAME}.zip"
