@@ -14,7 +14,10 @@ made fully browsable on its own, with the period HTML preserved byte-for-byte.
 The live successors of the project, for reference:
 [Grateful Dead Archive Online](https://www.gdao.org/items/show/100962) and the
 book [*The Complete Annotated Grateful Dead
-Lyrics*](https://www.simonandschuster.com/books/The-Complete-Annotated-Grateful-Dead-Lyrics/David-G-Dodd/9781439103340).
+Lyrics*](https://a.co/d/0gFJybQ1).
+
+We have no financial interest in this publication — purchasing the book is a
+way to directly support David Dodd and keep his work moving forward.
 
 ---
 
