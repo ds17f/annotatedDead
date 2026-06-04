@@ -20,18 +20,35 @@ Lyrics*](https://www.simonandschuster.com/books/The-Complete-Annotated-Grateful-
 
 ## Quick start
 
+The raw archive (`mirror/`) is **committed**, so a fresh clone is ready to build
+— no crawl needed. The only prerequisite is [uv](https://docs.astral.sh/uv/).
+
 ```bash
-make install      # install deps (uv)
-make mirror       # download the raw archive into mirror/  (~30-45 min, one time)
-make dist         # build the full browsable, link-fixed site into dist/
+make all          # build the full site, audit it, and serve at localhost:8000
+```
+
+That single command sees `mirror/` is already present (so it **skips** the
+~40-minute crawl), builds `dist/`, audits link health, and serves the full site
+at **http://localhost:8000**. `uv run` provisions dependencies on first use, so
+a separate `make install` isn't required.
+
+Individual targets:
+
+```bash
+make dist         # build the full site (annotations + lyrics) into dist/
 make safe         # build dist/, then strip lyrics for safe public hosting
 make serve-dist   # serve dist/ at http://localhost:8000
 make audit        # report link health of dist/
+make mirror       # re-crawl the archive into mirror/ (~30-45 min; only to refresh)
 ```
 
-You don't strictly need a server — `dist/` is plain static HTML. After
-`make dist` you can just open `dist/index.html` (or `dist/gdhome.html`) with a
-`file://` URL in a browser and click through.
+To preview the **safe** (annotation-only) build locally, run `make safe` then
+`make serve-dist`. If a server is already running, `make safe` rewrites `dist/`
+in place and a browser refresh shows the stripped version — no restart needed.
+
+You don't strictly need a server — `dist/` is plain static HTML. After a build
+you can just open `dist/index.html` (or `dist/gdhome.html`) with a `file://` URL
+in a browser and click through.
 
 ---
 
