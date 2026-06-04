@@ -1,4 +1,4 @@
-.PHONY: install mirror mirror-retry dist audit serve-dist all release release-dryrun clean help
+.PHONY: install mirror mirror-retry dist safe audit serve-dist all release release-dryrun clean help
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -31,6 +31,10 @@ mirror-retry: ## Re-queue and retry URLs that failed during a throttled crawl
 dist: ## Build the browsable, link-fixed static site into dist/ from mirror/
 	@test -d mirror || { echo "mirror/ not found — run 'make mirror' first."; exit 1; }
 	uv run python scripts/build_site.py
+
+safe: ## Build dist/, then strip copyrighted lyrics for safe public hosting
+	@$(MAKE) dist
+	uv run python scripts/safe_build.py
 
 audit: ## Audit link health of the built dist/ site
 	@test -d dist || { echo "dist/ not found — run 'make dist' first."; exit 1; }

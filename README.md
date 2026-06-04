@@ -20,17 +20,35 @@ Lyrics*](https://www.simonandschuster.com/books/The-Complete-Annotated-Grateful-
 
 ## Quick start
 
+The raw archive (`mirror/`) is **committed**, so a fresh clone is ready to build
+— no crawl needed. The only prerequisite is [uv](https://docs.astral.sh/uv/).
+
 ```bash
-make install      # install deps (uv)
-make mirror       # download the raw archive into mirror/  (~30-45 min, one time)
-make dist         # build the browsable, link-fixed site into dist/
-make serve-dist   # serve dist/ at http://localhost:8000
-make audit        # report link health of dist/
+make all          # build the full site, audit it, and serve at localhost:8000
 ```
 
-You don't strictly need a server — `dist/` is plain static HTML. After
-`make dist` you can just open `dist/index.html` (or `dist/gdhome.html`) with a
-`file://` URL in a browser and click through.
+That single command sees `mirror/` is already present (so it **skips** the
+~40-minute crawl), builds `dist/`, audits link health, and serves the full site
+at **http://localhost:8000**. `uv run` provisions dependencies on first use, so
+a separate `make install` isn't required.
+
+Individual targets:
+
+```bash
+make dist         # build the full site (annotations + lyrics) into dist/
+make safe         # build dist/, then strip lyrics for safe public hosting
+make serve-dist   # serve dist/ at http://localhost:8000
+make audit        # report link health of dist/
+make mirror       # re-crawl the archive into mirror/ (~30-45 min; only to refresh)
+```
+
+To preview the **safe** (annotation-only) build locally, run `make safe` then
+`make serve-dist`. If a server is already running, `make safe` rewrites `dist/`
+in place and a browser refresh shows the stripped version — no restart needed.
+
+You don't strictly need a server — `dist/` is plain static HTML. After a build
+you can just open `dist/index.html` (or `dist/gdhome.html`) with a `file://` URL
+in a browser and click through.
 
 ---
 
@@ -54,6 +72,35 @@ archive.org ──mirror──► mirror/ ──build──► dist/ ──serve
 Keeping these separate is the whole point: downloading once into an immutable
 `mirror/` means the browsable output can be regenerated any number of ways
 without ever re-hitting archive.org.
+
+---
+
+## Status & self-hosting: full vs. safe builds
+
+David Dodd generously gave permission to host his **annotations and essays**.
+He did **not** (and could not) license the underlying **song lyrics**, which are
+separately copyrighted. So this project distinguishes two builds:
+
+| Build | Command | Contains | Who it's for |
+|-------|---------|----------|--------------|
+| **Full** | `make dist` | annotations **and** lyrics | local self-hosters with a lawful source |
+| **Safe** | `make safe` | annotations only; lyrics replaced with a link to [dead.net/songs](https://www.dead.net/songs) | the public site we deploy |
+
+**`make safe`** runs the normal build and then a standalone pass
+(`scripts/safe_build.py`) that strips each song's verbatim lyric block — the
+`<blockquote>` between the song's credit line and the first annotation anchor —
+and drops a link to the official lyrics source in its place. **Everything else
+is preserved**: the essays, and the public-domain poems, dictionary entries, and
+reader correspondence quoted *within* the annotations. Short lyric fragments
+quoted inline for commentary in the essays are left intact (permitted annotation
+/ fair use); only the full per-song lyric reproductions are removed. The pass is
+idempotent and byte-preserving, and it never deletes a byte of the annotation
+section even on pages with malformed 1990s markup.
+
+The public site at **https://annotated.thedeadly.app/** is the **safe** build —
+CI runs `make safe` before deploying. If you have obtained a lawful copy of the
+original HTML (e.g. via the Internet Archive, see `make mirror`), `make dist`
+gives you the complete site locally.
 
 ---
 
@@ -184,6 +231,7 @@ dist/                # built, link-fixed site (gitignored; regenerate with `make
 scripts/
   mirror.py          # the raw crawler  (make mirror / mirror-retry)
   build_site.py      # the cleanup build (make dist)
+  safe_build.py      # the lyric-strip pass for public hosting (make safe)
   audit_links.py     # the link auditor  (make audit)
   release.sh         # tag a semver release (make release)
 .github/workflows/   # CI, Pages deploy, release automation
@@ -200,7 +248,8 @@ Run `make help` for the full target list.
 The site is hosted on **GitHub Pages** and deploys automatically:
 
 - **Every merge to `main`** runs CI (build + link audit) and, on success,
-  publishes the site to Pages (`.github/workflows/deploy-pages.yml`). The build
+  publishes the site to Pages (`.github/workflows/deploy-pages.yml`). The deploy
+  runs `make safe`, so the **annotation-only** site is what goes live; the build
   uses the committed `mirror/`, so no archive.org crawl happens in CI.
 - **Releases are semver-tagged.** `make release` reads
   [Conventional Commits](https://www.conventionalcommits.org/) since the last

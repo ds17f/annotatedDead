@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
 # On every push to main (i.e. after a PR merges), build the site from the
-# committed mirror/ and deploy dist/ to GitHub Pages. No archive.org crawl is
-# needed — mirror/ is the committed source of truth.
+# committed mirror/, strip the copyrighted lyrics, and deploy dist/ to GitHub
+# Pages. No archive.org crawl is needed — mirror/ is the committed source of
+# truth. The public deploy runs `make safe` (build + lyric strip), so the
+# hosted site keeps David Dodd's annotations but omits the song lyrics.
 on:
   push:
     branches: [main]
@@ -32,8 +34,8 @@ jobs:
       - name: Install dependencies
         run: make install
 
-      - name: Build dist/
-        run: make dist
+      - name: Build the safe public site (build + strip lyrics)
+        run: make safe
 
       - name: Set custom domain (persists across deploys)
         run: echo 'annotated.thedeadly.app' > dist/CNAME
