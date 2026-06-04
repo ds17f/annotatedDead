@@ -52,17 +52,40 @@ from pathlib import Path
 DIST = Path(__file__).parent.parent / "dist"
 SONGS_URL = "https://www.dead.net/songs"
 
-# First annotation anchor: <a name="..."> marks where the essay begins. Lyrics
-# live before it; everything from it onward is annotation we keep.
-SEAM_RE = re.compile(r"<a\s+name\s*=", re.I)
-
-# The song-credit line that precedes real lyrics. Matching one of these (rather
-# than a bare "used by permission" text search) is what distinguishes a song
-# page from an essay, and excludes the unrelated "Copyright Steve Silberman.
-# Used by permission." essay credit.
+# The song-credit line that precedes real lyrics. This is what distinguishes a
+# song page from an essay or a discography (which lack it, e.g. goose.html,
+# tribute.html, the "Copyright Steve Silberman. Used by permission." essay
+# credit). We anchor on it FIRST, then look for the annotation seam after it --
+# some pages put an <a name> in the title heading at the very top (scarlet.html,
+# stephen.html), so the first <a name> on the page is not the seam.
+#
+# Two forms anchor a song page. The usual one is the "words/music by ..."
+# authorship line. But a handful of pages spell the authorship differently --
+# with a colon ("Words: Hunter; music: Garcia", e.g. libe/eter/onlytime/way2) or
+# crediting the band as a whole ("By the Grateful Dead", e.g. ydha) -- which the
+# authorship pattern misses. Those all still carry the publisher's licensed-lyric
+# signature, "Copyright Ice Nine Publishing; used by permission", which sits just
+# above the lyric block exactly as the authorship line does. It is the definitive
+# marker of reproduced GD lyrics: essays that merely quote permission say "Used
+# with permission" without naming Ice Nine (silber/miller/stephen/tribute), and
+# pages whose blockquote is an annotation rather than licensed lyrics (operator's
+# OED entry, slip's reader email) have no permission line at all. So we accept it
+# as a fallback credit anchor. On the 118 "words by" pages the authorship line
+# still matches first, leaving their output byte-for-byte unchanged.
 CREDIT_RE = re.compile(
-    r"(used by permission|words?\s+(?:and\s+music\s+)?by|lyrics?\s+by|music\s+by)",
+    r"words?\s+(?:and\s+music\s+)?by|lyrics?\s+by|music\s+by"
+    r"|copyright\s+ice\s+nine",
     re.I,
+)
+
+# The annotation seam: where commentary begins. A real section header is an
+# <a name=...> ADJACENT to an <h3> (either order), always introduced after the
+# lyrics. This deliberately ignores inline <a name> anchors that sit *inside* the
+# lyrics with no <h3> (e.g. ripple.html's <a name="let">Let there be songs..., or
+# ramble2.html's <a name="know">), which a bare "<a name>" match would mistake
+# for the seam and cut the lyric strip short.
+SEAM_RE = re.compile(
+    r"<h3>\s*<a\s+name\s*=|<a\s+name\s*=[^>]*>\s*(?:</a>\s*)?<h3", re.I
 )
 
 BLOCKQUOTE_RE = re.compile(r"<blockquote>.*?</blockquote>", re.I | re.S)
@@ -107,15 +130,15 @@ def _lyric_start(text, lo, seam):
 def strip_page(text):
     """Return (new_text, n_blocks_removed) if this is a song page with lyrics to
     strip, else None to leave the page untouched."""
-    seam_m = SEAM_RE.search(text)
-    if not seam_m:
-        return None                       # no annotation anchor -> not a song page
-    seam = seam_m.start()
-
-    credit_m = CREDIT_RE.search(text[:seam])
+    credit_m = CREDIT_RE.search(text)
     if not credit_m:
         return None                       # no song-credit line -> essay/bio, skip
     lo = credit_m.start()
+
+    seam_m = SEAM_RE.search(text, credit_m.end())
+    if not seam_m:
+        return None                       # no annotation section -> nothing to bound
+    seam = seam_m.start()
 
     # Case 1: lyrics wrapped in <blockquote> (the common layout). Targets are the
     # blockquotes starting between the credit line and the seam.
