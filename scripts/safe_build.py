@@ -33,6 +33,16 @@ untouched. Pages with no annotation anchor at all (bios, bibliographies) are
 skipped too. Where a song shows more than one lyric blockquote (alternate verses,
 e.g. clem.html), each is removed but any editorial note Dodd wrote between them is
 preserved.
+
+Not every song uses a <blockquote>. Some lay the lyrics out as bare
+<br>-separated lines, or inside a layout <table> (e.g. soma.html, bird.html). For
+those we strip the span from the end of the credit/copyright preamble to the
+seam, gated so non-lyric pages stay untouched: pages whose region carries list
+markup (discographies, title-phrase nav like appl.html / tribute.html) are
+skipped, and the span must be verse-dense (>=10 <br>; real lyric spans have >=27,
+everything else <=5). Single-line epigraphs above the credit line, and short
+lyric fragments quoted inside the annotations, are fragments -- left in place, by
+the same fair-use reasoning that keeps the essays.
 """
 
 import re
@@ -57,6 +67,18 @@ CREDIT_RE = re.compile(
 
 BLOCKQUOTE_RE = re.compile(r"<blockquote>.*?</blockquote>", re.I | re.S)
 
+# Some pages lay lyrics out as bare <br>-separated lines (or inside a layout
+# <table>) with no <blockquote> at all. There the lyric span runs from the end
+# of the credit/copyright preamble to the annotation seam. PREAMBLE_RE finds the
+# credit lines (the lyrics start after the LAST one); BOUNDARY_RE finds the
+# <br>/<p> that ends that line.
+PREAMBLE_RE = re.compile(
+    r"(words?\s+(?:and\s+music\s+)?by|lyrics?\s+by|music\s+by"
+    r"|copyright|used\s+(?:by|with)[^<\n]*permission)",
+    re.I,
+)
+BOUNDARY_RE = re.compile(r"<br\s*/?>|<p\s*/?>", re.I)
+
 # Marker left in stripped pages so re-running the pass is a no-op.
 NOTICE_MARK = "<!-- lyrics-stripped -->"
 NOTICE = (
@@ -67,6 +89,19 @@ NOTICE = (
     f'<a href="{SONGS_URL}">dead.net/songs</a>.</p>\n'
     "</blockquote>"
 )
+
+
+def _lyric_start(text, lo, seam):
+    """Where the lyrics begin: just after the last credit/copyright line in the
+    [lo, seam) region. Falls back to lo if no preamble line is found."""
+    last = None
+    for m in PREAMBLE_RE.finditer(text[lo:seam]):
+        last = m
+    if not last:
+        return lo
+    pos = lo + last.end()
+    boundary = BOUNDARY_RE.search(text, pos, seam)
+    return boundary.end() if boundary else pos
 
 
 def strip_page(text):
@@ -82,27 +117,42 @@ def strip_page(text):
         return None                       # no song-credit line -> essay/bio, skip
     lo = credit_m.start()
 
-    # Lyric blockquotes are those starting between the credit line and the seam.
+    # Case 1: lyrics wrapped in <blockquote> (the common layout). Targets are the
+    # blockquotes starting between the credit line and the seam.
     targets = [m for m in BLOCKQUOTE_RE.finditer(text) if lo <= m.start() < seam]
-    if not targets:
-        return None                       # song title page with no reproduced lyrics
+    if targets:
+        # Replace right-to-left so earlier match offsets stay valid. The first
+        # lyric block (in document order) becomes the notice; any others are
+        # dropped, while the prose between them -- Dodd's editorial notes -- is
+        # left in place.
+        #
+        # Some 1990s pages (e.g. eleven.html) never close the lyric <blockquote>
+        # before the annotations, so the match runs past the seam and would
+        # engulf the <a name=...> anchor. Clamp every removal at the seam: never
+        # delete a byte of the annotation section, even at the cost of leaving a
+        # stray, browser-ignored </blockquote> behind.
+        first = targets[0]
+        out = text
+        for m in reversed(targets):
+            end = min(m.end(), seam)
+            repl = NOTICE if m is first else ""
+            out = out[: m.start()] + repl + out[end:]
+        return out, len(targets)
 
-    # Replace right-to-left so earlier match offsets stay valid. The first lyric
-    # block (in document order) becomes the notice; any others are dropped, while
-    # the prose between them -- Dodd's editorial notes -- is left in place.
-    #
-    # Some 1990s pages (e.g. eleven.html) never close the lyric <blockquote>
-    # before the annotations, so the match runs past the seam and would engulf
-    # the <a name=...> anchor. Clamp every removal at the seam: never delete a
-    # byte of the annotation section, even at the cost of leaving a stray,
-    # browser-ignored </blockquote> behind.
-    first = targets[0]
-    out = text
-    for m in reversed(targets):
-        end = min(m.end(), seam)
-        repl = NOTICE if m is first else ""
-        out = out[: m.start()] + repl + out[end:]
-    return out, len(targets)
+    # Case 2: no lyric <blockquote>. Lyrics may instead be bare <br>-separated
+    # lines or inside a layout <table> (e.g. soma.html, bird.html). Strip the
+    # span from the end of the credit preamble to the seam -- but only when it
+    # really is a reproduced lyric. Two gates keep non-lyric pages (title-phrase
+    # annotations, discographies, the home page) untouched: skip if the region
+    # carries list markup (a discography / nav block), and require a verse-dense
+    # span. Across the archive that span has >=27 <br> on real lyric pages and
+    # <=5 on everything else, so a threshold of 10 separates them cleanly.
+    if "<li" in text[lo:seam].lower():
+        return None
+    start = _lyric_start(text, lo, seam)
+    if text[start:seam].lower().count("<br") < 10:
+        return None
+    return text[:start] + NOTICE + text[seam:], 1
 
 
 def main():
