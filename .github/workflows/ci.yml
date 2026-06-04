@@ -1,7 +1,8 @@
 name: CI
 
-# Builds the site from the committed mirror/ and audits link health.
-# This is the required status check for pull requests into main.
+# Builds the safe public site from the committed mirror/ (full build + lyric
+# strip) and audits its link health. This is the required status check for
+# pull requests into main, and it gates exactly what deploy-pages.yml ships.
 on:
   pull_request:
     branches: [main]
@@ -25,8 +26,8 @@ jobs:
       - name: Install dependencies
         run: make install
 
-      - name: Build dist/
-        run: make dist
+      - name: Build the safe public site (build + strip lyrics)
+        run: make safe
 
       - name: Audit link health
         run: make audit
