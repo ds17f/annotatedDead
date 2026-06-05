@@ -1,4 +1,4 @@
-.PHONY: install mirror mirror-retry dist safe audit serve-dist all release release-dryrun clean help
+.PHONY: install mirror mirror-retry dist safe audit serve-dist all release release-dryrun clean clean-yolo help
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -58,8 +58,7 @@ release: ## Tag a semver release from conventional commits (pushes tag, triggers
 release-dryrun: ## Preview the next release version + changelog without tagging
 	@./scripts/release.sh --dry-run $(VERSION)
 
-clean: ## Remove build artifacts (dist/, logs, caches) — mirror/ is kept
-	rm -rf dist/
-	rm -f mirror.log
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
+clean-yolo: ## Remove everything including mirror/ and crawl state
+	$(MAKE) clean
+	rm -rf mirror/ .mirror_state/
+
