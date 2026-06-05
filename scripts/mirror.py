@@ -309,6 +309,7 @@ def main():
                     help="AGDL-relative path to start from (default: gdhome.html)")
     ap.add_argument("--limit", type=int, default=None,
                     help="Max pages to fetch this run (for testing).")
+    ap.add_argument("--retry-failed", action="store_true", help="Re‑queue previously failed URLs (default off).")
     ap.add_argument("--auto-retry", action="store_true", default=True, help="Automatically re‑queue failed URLs for later retry (default on).")
     args = ap.parse_args()
     crawl(start=args.start, limit=args.limit, retry_failed=args.retry_failed, auto_retry=args.auto_retry)
