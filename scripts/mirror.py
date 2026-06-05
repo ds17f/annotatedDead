@@ -173,32 +173,46 @@ def load_state():
         try:
             state = json.loads(STATE_FILE.read_text())
             logger.info(
-                "Loaded state: %d succeeded, %d failed, %d queued",
+                "Loaded state: %d succeeded, %d failed, %d queued, %d attempts",
                 len(state.get("succeeded", [])),
                 len(state.get("failed", [])),
                 len(state.get("queue", [])),
+                len(state.get("attempts", {})),
             )
             return state
         except Exception as e:  # noqa: BLE001
             logger.warning("Could not load state: %s", e)
-    return {"succeeded": [], "failed": [], "queue": []}
+    # initialize attempts dict for new runs
+    return {"succeeded": [], "failed": [], "queue": [], "attempts": {}}
 
 
-def save_state(succeeded, failed, queue):
+def save_state(succeeded, failed, queue, attempts):
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     STATE_FILE.write_text(
         json.dumps(
-            {"succeeded": sorted(succeeded), "failed": sorted(failed), "queue": queue},
+            {
+                "succeeded": sorted(succeeded),
+                "failed": sorted(failed),
+                "queue": queue,
+                "attempts": attempts,
+            },
             indent=2,
         )
     )
 
 
-def crawl(start="gdhome.html", limit=None, retry_failed=False):
+def crawl(
+    start="gdhome.html",
+    limit=None,
+    retry_failed=False,
+    auto_retry=False,
+    max_attempts=10,
+):
     state = load_state()
     succeeded = set(state["succeeded"])
     failed = set(state["failed"])
     queue = state["queue"] if state["queue"] else [start]
+    attempts = state.get("attempts", {})
 
     if retry_failed:
         for rel in failed:
@@ -207,8 +221,12 @@ def crawl(start="gdhome.html", limit=None, retry_failed=False):
         failed.clear()
 
     logger.info(
-        "Starting: %d succeeded, %d failed, %d queued (limit=%s)",
-        len(succeeded), len(failed), len(queue), limit,
+        "Starting: %d succeeded, %d failed, %d queued, %d attempts (limit=%s)",
+        len(succeeded),
+        len(failed),
+        len(queue),
+        len(attempts),
+        limit,
     )
 
     processed = 0
@@ -233,18 +251,29 @@ def crawl(start="gdhome.html", limit=None, retry_failed=False):
                 resp = fetch_url(rel)
             except requests.RequestException as e:
                 logger.error("Failed %s: %s", rel, e)
-                failed.add(rel)
+                # Increment attempt counter
+                attempts[rel] = attempts.get(rel, 0) + 1
+                if auto_retry and attempts[rel] < max_attempts:
+                    logger.info("Re‑queueing %s for later retry (attempt %d)", rel, attempts[rel])
+                    queue.append(rel)
+                else:
+                    failed.add(rel)
                 continue
 
             try:
                 save_bytes(rel, resp.content)
             except OSError as e:
                 logger.error("Could not save %s: %s", rel, e)
-                failed.add(rel)
+                attempts[rel] = attempts.get(rel, 0) + 1
+                if auto_retry and attempts[rel] < max_attempts:
+                    queue.append(rel)
+                else:
+                    failed.add(rel)
                 continue
 
             succeeded.add(rel)
             failed.discard(rel)
+            attempts.pop(rel, None)  # reset attempts on success
             processed += 1
 
             if is_html(resp, rel):
@@ -254,21 +283,25 @@ def crawl(start="gdhome.html", limit=None, retry_failed=False):
 
             logger.info(
                 "Saved %s  |  queue=%d succeeded=%d failed=%d",
-                rel, len(queue), len(succeeded), len(failed),
+                rel,
+                len(queue),
+                len(succeeded),
+                len(failed),
             )
 
             if processed % SAVE_INTERVAL == 0:
-                save_state(succeeded, failed, queue)
+                save_state(succeeded, failed, queue, attempts)
 
     except KeyboardInterrupt:
         logger.info("Interrupted; saving state.")
     finally:
-        save_state(succeeded, failed, queue)
+        save_state(succeeded, failed, queue, attempts)
         logger.info(
             "Session ended. succeeded=%d failed=%d queued=%d",
-            len(succeeded), len(failed), len(queue),
+            len(succeeded),
+            len(failed),
+            len(queue),
         )
-
 
 def main():
     ap = argparse.ArgumentParser(description="Raw mirror crawler for AGDL archive.")
@@ -276,10 +309,9 @@ def main():
                     help="AGDL-relative path to start from (default: gdhome.html)")
     ap.add_argument("--limit", type=int, default=None,
                     help="Max pages to fetch this run (for testing).")
-    ap.add_argument("--retry-failed", action="store_true",
-                    help="Requeue previously failed URLs.")
+    ap.add_argument("--auto-retry", action="store_true", default=True, help="Automatically re‑queue failed URLs for later retry (default on).")
     args = ap.parse_args()
-    crawl(start=args.start, limit=args.limit, retry_failed=args.retry_failed)
+    crawl(start=args.start, limit=args.limit, retry_failed=args.retry_failed, auto_retry=args.auto_retry)
 
 
 if __name__ == "__main__":
