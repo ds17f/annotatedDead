@@ -1,8 +1,10 @@
 name: Release
 
-# Triggered by a vX.Y.Z tag (created by `make release`). Builds the site,
-# packages dist/ as a downloadable zip, and publishes a GitHub Release whose
-# notes are the annotated tag's changelog.
+# Triggered by a vX.Y.Z tag (created by `make release`). Builds the SAFE site
+# (annotations only, lyrics stripped), packages dist/ as a downloadable zip, and
+# publishes a GitHub Release whose notes are the annotated tag's changelog. The
+# raw mirror/ is checked out from the private mirror repo via MIRROR_DEPLOY_KEY;
+# the released zip is the public, lyric-free build.
 on:
   push:
     tags: ["v*"]
@@ -18,6 +20,16 @@ jobs:
         with:
           fetch-depth: 0  # need the annotated tag object for its changelog
 
+      - name: Fetch the raw archive mirror (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: ds17f/annotatedDead-mirror
+          path: .mirror-src
+          ssh-key: ${{ secrets.MIRROR_DEPLOY_KEY }}
+
+      - name: Stage mirror/ at the repo root
+        run: mv .mirror-src/mirror ./mirror
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -26,8 +38,8 @@ jobs:
       - name: Install dependencies
         run: make install
 
-      - name: Build dist/
-        run: make dist
+      - name: Build the safe site (build + strip lyrics)
+        run: make safe
 
       - name: Package dist/ as a zip
         run: |

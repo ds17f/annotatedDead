@@ -12,19 +12,23 @@ human-friendly version.
 
 ```bash
 make install        # installs deps with uv
+make mirror         # fetch the raw archive into mirror/ (~30-45 min; once)
 make dist           # build the browsable site into dist/
 make serve-dist     # view it at http://localhost:8000
 make audit          # check link health
 ```
 
-You do **not** need to run `make mirror` (the ~30–45 min archive crawl) — the
-`mirror/` source is committed.
+The `mirror/` source is **not committed** to this public repo — it contains the
+copyrighted song lyrics. On a fresh clone you must run `make mirror` once (a
+Wayback crawl) to recreate it; after that it is cached on disk and `make dist`
+is instant. `make all` runs the crawl automatically only if `mirror/` is absent.
 
 ## The one rule
 
 **Never edit `mirror/` or `dist/` by hand.**
 
-- `mirror/` is the byte-for-byte archived source of truth.
+- `mirror/` is the byte-for-byte archived source of truth (gitignored; recreate
+  with `make mirror`).
 - `dist/` is generated and gitignored.
 
 All fixes are expressed as code in `scripts/build_site.py`, so they're

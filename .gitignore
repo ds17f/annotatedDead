@@ -9,6 +9,12 @@ venv/
 ENV/
 env/
 
+# Raw archive mirror — deliberately NOT committed to this public repo: it holds
+# the byte-exact original pages including the copyrighted song lyrics. Recreate
+# it locally with `make mirror` (a Wayback crawl); CI checks it out from the
+# private mirror repo. See README "source of truth -> build".
+mirror/
+
 # Built faithful site (regenerate with `make dist` from mirror/)
 dist/
 

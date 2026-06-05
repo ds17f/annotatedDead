@@ -1,8 +1,10 @@
 name: CI
 
-# Builds the safe public site from the committed mirror/ (full build + lyric
-# strip) and audits its link health. This is the required status check for
-# pull requests into main, and it gates exactly what deploy-pages.yml ships.
+# Builds the safe public site (full build + lyric strip) and audits its link
+# health. The raw mirror/ is NOT committed to this public repo (it holds the
+# copyrighted lyrics); CI checks it out from the private mirror repo using the
+# MIRROR_DEPLOY_KEY secret. This is the required status check for pull requests
+# into main, and it gates exactly what deploy-pages.yml ships.
 on:
   pull_request:
     branches: [main]
@@ -17,6 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Fetch the raw archive mirror (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: ds17f/annotatedDead-mirror
+          path: .mirror-src
+          ssh-key: ${{ secrets.MIRROR_DEPLOY_KEY }}
+
+      - name: Stage mirror/ at the repo root
+        run: mv .mirror-src/mirror ./mirror
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5

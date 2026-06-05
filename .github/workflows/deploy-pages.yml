@@ -1,10 +1,11 @@
 name: Deploy to GitHub Pages
 
-# On every push to main (i.e. after a PR merges), build the site from the
-# committed mirror/, strip the copyrighted lyrics, and deploy dist/ to GitHub
-# Pages. No archive.org crawl is needed — mirror/ is the committed source of
-# truth. The public deploy runs `make safe` (build + lyric strip), so the
-# hosted site keeps David Dodd's annotations but omits the song lyrics.
+# On every push to main (i.e. after a PR merges), build the site, strip the
+# copyrighted lyrics, and deploy dist/ to GitHub Pages. The raw mirror/ is not
+# committed to this public repo; it is checked out from the private mirror repo
+# via the MIRROR_DEPLOY_KEY secret (no archive.org crawl needed). The public
+# deploy runs `make safe` (build + lyric strip), so the hosted site keeps David
+# Dodd's annotations but omits the song lyrics.
 on:
   push:
     branches: [main]
@@ -25,6 +26,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Fetch the raw archive mirror (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: ds17f/annotatedDead-mirror
+          path: .mirror-src
+          ssh-key: ${{ secrets.MIRROR_DEPLOY_KEY }}
+
+      - name: Stage mirror/ at the repo root
+        run: mv .mirror-src/mirror ./mirror
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v5

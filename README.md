@@ -20,17 +20,20 @@ Lyrics*](https://www.simonandschuster.com/books/The-Complete-Annotated-Grateful-
 
 ## Quick start
 
-The raw archive (`mirror/`) is **committed**, so a fresh clone is ready to build
-— no crawl needed. The only prerequisite is [uv](https://docs.astral.sh/uv/).
+The only prerequisite is [uv](https://docs.astral.sh/uv/).
 
 ```bash
-make all          # build the full site, audit it, and serve at localhost:8000
+make all          # fetch the archive, build the full site, audit it, and serve
 ```
 
-That single command sees `mirror/` is already present (so it **skips** the
-~40-minute crawl), builds `dist/`, audits link health, and serves the full site
-at **http://localhost:8000**. `uv run` provisions dependencies on first use, so
-a separate `make install` isn't required.
+On a fresh clone the raw archive (`mirror/`) is **not present** — it is not
+committed to this repo (see [Status & self-hosting](#status--self-hosting-full-vs-safe-builds)
+below). `make all` sees it is missing and runs the one-time **~40-minute**
+Wayback crawl (`make mirror`) to recreate it, then builds `dist/`, audits link
+health, and serves the full site at **http://localhost:8000**. The crawl only
+happens once: the mirror is cached on disk, so later `make` runs skip it. `uv
+run` provisions dependencies on first use, so a separate `make install` isn't
+required.
 
 Individual targets:
 
@@ -65,7 +68,9 @@ archive.org ──mirror──► mirror/ ──build──► dist/ ──serve
 
 - **`mirror/`** is the *source of truth*: the original HTML and image assets,
   saved exactly as the archive served them. No conversion, no link rewriting.
-  Build outputs can be regenerated from it forever with **zero network**.
+  Once you have it, build outputs can be regenerated forever with **zero
+  network**. It is **gitignored / not committed to this public repo** (it
+  contains the copyrighted lyrics); recreate it with `make mirror`.
 - **`dist/`** is a *build artifact*: `mirror/` plus link fixes. It's gitignored
   and rebuilt by `make dist`.
 
@@ -97,10 +102,16 @@ quoted inline for commentary in the essays are left intact (permitted annotation
 idempotent and byte-preserving, and it never deletes a byte of the annotation
 section even on pages with malformed 1990s markup.
 
+Because the full build embeds those lyrics, the raw `mirror/` is **kept out of
+this public repository** entirely — it is gitignored, and CI sources it from a
+separate **private** mirror repo (via the `MIRROR_DEPLOY_KEY` secret) purely to
+produce the safe deploy. Nothing public, here or in CI artifacts, contains the
+verbatim lyrics.
+
 The public site at **https://annotated.thedeadly.app/** is the **safe** build —
-CI runs `make safe` before deploying. If you have obtained a lawful copy of the
-original HTML (e.g. via the Internet Archive, see `make mirror`), `make dist`
-gives you the complete site locally.
+CI runs `make safe` before deploying. To build the **full** site locally, run
+`make mirror` once to fetch a lawful copy of the original HTML from the Internet
+Archive, then `make dist`.
 
 ---
 
@@ -226,7 +237,8 @@ These are defects in the **original 1990s source**, kept rather than invented ar
 ## Project layout
 
 ```
-mirror/              # raw byte-exact archive copy — the source of truth (committed)
+mirror/              # raw byte-exact archive copy — source of truth (gitignored;
+                     #   not committed; recreate with `make mirror`)
 dist/                # built, link-fixed site (gitignored; regenerate with `make dist`)
 scripts/
   mirror.py          # the raw crawler  (make mirror / mirror-retry)
@@ -249,13 +261,14 @@ The site is hosted on **GitHub Pages** and deploys automatically:
 
 - **Every merge to `main`** runs CI (build + link audit) and, on success,
   publishes the site to Pages (`.github/workflows/deploy-pages.yml`). The deploy
-  runs `make safe`, so the **annotation-only** site is what goes live; the build
-  uses the committed `mirror/`, so no archive.org crawl happens in CI.
+  runs `make safe`, so the **annotation-only** site is what goes live. CI checks
+  out `mirror/` from the private mirror repo (via `MIRROR_DEPLOY_KEY`), so no
+  archive.org crawl happens in CI.
 - **Releases are semver-tagged.** `make release` reads
   [Conventional Commits](https://www.conventionalcommits.org/) since the last
   `v*` tag, picks the next version, and pushes a `vX.Y.Z` tag. That triggers
-  `release.yml`, which builds the site, attaches `dist.zip`, and publishes a
-  GitHub Release. Preview first with `make release-dryrun`.
+  `release.yml`, which builds the **safe** site, attaches a lyric-free `dist.zip`,
+  and publishes a GitHub Release. Preview first with `make release-dryrun`.
 
 ## Contributing
 
